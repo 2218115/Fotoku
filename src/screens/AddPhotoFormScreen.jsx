@@ -80,7 +80,7 @@ export default function AddPhotoFormScreen() {
             textAlign="left"
             textAlignVertical="top"
             placeholder="Tulis caption..."
-            placeholderTextColor={colors.inactive}
+            placeholderTextColor={colors.secondary}
             cursorColor={colors.primary}
             selectionColor={colors.secondary}
             value={caption}

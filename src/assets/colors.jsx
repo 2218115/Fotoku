@@ -5,5 +5,4 @@ export default {
   accent: '#007AFF',
   border: '#f5f5f5',
   background: '#FFFFFF',
-  inactive: '#C4C4C4',
 };
