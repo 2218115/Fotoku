@@ -22,7 +22,7 @@ export function PhotoCard({item}) {
           <Image src={item.image} style={card.image} />
           <View style={card.content}>
             <View style={card.authorContainer}>
-              <Image src={item.author.profileImage} style={card.authorImage} />
+              <Image src={item.author.image} style={card.authorImage} />
               <Text style={card.authorName}>{item.author.name}</Text>
             </View>
 

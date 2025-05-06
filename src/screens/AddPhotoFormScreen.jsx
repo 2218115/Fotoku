@@ -7,6 +7,8 @@ import {
   TextInput,
   Image,
   Pressable,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import colors from '../assets/colors';
 import Octicons from '@react-native-vector-icons/octicons';
@@ -21,11 +23,67 @@ export default function AddPhotoFormScreen() {
   const [caption, setCaption] = useState('');
 
   const pickImage = async () => {
-    launchImageLibrary({mediaType: 'photo', quality: 0.7}, response => {
+    launchImageLibrary({mediaType: 'photo', quality: 0.1}, response => {
       if (response.assets && response.assets.length > 0) {
-        setPhoto(response.assets[0].uri);
+        setPhoto(response.assets[0]);
       }
     });
+  };
+
+  const [loading, setLoading] = useState(false);
+
+  const handleUpload = async () => {
+    try {
+      setLoading(true);
+      const imageFormData = new FormData();
+      imageFormData.append('file', {
+        uri: photo.uri,
+        name: photo.fileName,
+        type: photo.type,
+      });
+
+      const result = await fetch(
+        'https://backend-file-praktikum.vercel.app/upload/',
+        {
+          method: 'POST',
+          body: imageFormData,
+        },
+      );
+      console.log('result', result);
+      if (result.status !== 200) {
+        throw new Error('failed to upload image');
+      }
+      const {url} = await result.json();
+
+      const response = await fetch(
+        'https://6819fd411ac115563507532b.mockapi.io/api/post',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            image: url,
+            caption: caption,
+            isLiked: false,
+            author: {
+              id: 1,
+              name: 'Makrus Ali',
+              image: 'https://avatars.githubusercontent.com/u/64481824?v=4',
+            },
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      console.log('response', response);
+      if (response.status == 201) {
+        navigation.goBack();
+      }
+    } catch (error) {
+      console.log('error', error);
+      Alert.alert('Error', 'Gagal mengunggah foto. Silakan coba lagi.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -59,7 +117,7 @@ export default function AddPhotoFormScreen() {
             }}>
             {photo ? (
               <Image
-                source={{uri: photo}}
+                source={{uri: photo.uri}}
                 style={{
                   width: '100%',
                   height: '100%',
@@ -107,17 +165,23 @@ export default function AddPhotoFormScreen() {
             alignItems: 'center',
             margin: 16,
           }}
+          disabled={loading}
+          android_ripple={{color: colors.primaryLight}}
           onPress={() => {
-            navigation.goBack();
+            handleUpload();
           }}>
-          <Text
-            style={{
-              color: colors.background,
-              fontWeight: 'bold',
-              fontSize: 16,
-            }}>
-            Unggah
-          </Text>
+          {loading ? (
+            <ActivityIndicator color={colors.background} size="small" />
+          ) : (
+            <Text
+              style={{
+                color: colors.background,
+                fontWeight: 'bold',
+                fontSize: 16,
+              }}>
+              Unggah
+            </Text>
+          )}
         </Pressable>
       </View>
     </View>
