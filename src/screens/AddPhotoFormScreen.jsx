@@ -12,15 +12,43 @@ import {
 } from 'react-native';
 import colors from '../assets/colors';
 import Octicons from '@react-native-vector-icons/octicons';
-import {useNavigation} from '@react-navigation/native';
-import React, {useState} from 'react';
+import {useNavigation, useRoute} from '@react-navigation/native';
+import React, {useState, useEffect} from 'react';
 import {launchImageLibrary} from 'react-native-image-picker';
 
 export default function AddPhotoFormScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
+  const {id} = route.params || {};
 
   const [photo, setPhoto] = useState(null);
   const [caption, setCaption] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (id) {
+      setIsEditing(true);
+      fetchPostDetails();
+    }
+  }, [id]);
+
+  const fetchPostDetails = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `https://6819fd411ac115563507532b.mockapi.io/api/post/${id}`,
+      );
+      const data = await response.json();
+      setCaption(data.caption);
+      setPhoto({uri: data.image});
+    } catch (error) {
+      console.log('Error fetching post details:', error);
+      Alert.alert('Error', 'Failed to load post details');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const pickImage = async () => {
     launchImageLibrary({mediaType: 'photo', quality: 0.1}, response => {
@@ -30,57 +58,76 @@ export default function AddPhotoFormScreen() {
     });
   };
 
-  const [loading, setLoading] = useState(false);
-
   const handleUpload = async () => {
+    if (!photo) {
+      Alert.alert('Error', 'Please select a photo first');
+      return;
+    }
+
     try {
       setLoading(true);
-      const imageFormData = new FormData();
-      imageFormData.append('file', {
-        uri: photo.uri,
-        name: photo.fileName,
-        type: photo.type,
+      
+      let imageUrl = photo.uri;
+      
+      // Only upload new image if it's not from the existing post (has no fileName property)
+      if (photo.fileName) {
+        const imageFormData = new FormData();
+        imageFormData.append('file', {
+          uri: photo.uri,
+          name: photo.fileName,
+          type: photo.type,
+        });
+
+        const uploadResult = await fetch(
+          'https://backend-file-praktikum.vercel.app/upload/',
+          {
+            method: 'POST',
+            body: imageFormData,
+          },
+        );
+        
+        if (uploadResult.status !== 200) {
+          throw new Error('failed to upload image');
+        }
+        
+        const {url} = await uploadResult.json();
+        imageUrl = url;
+      }
+
+      const apiUrl = isEditing 
+        ? `https://6819fd411ac115563507532b.mockapi.io/api/post/${id}`
+        : 'https://6819fd411ac115563507532b.mockapi.io/api/post';
+
+      const method = isEditing ? 'PUT' : 'POST';
+
+      const response = await fetch(apiUrl, {
+        method,
+        body: JSON.stringify({
+          image: imageUrl,
+          caption: caption,
+          isLiked: false,
+          author: {
+            id: 1,
+            name: 'Makrus Ali',
+            image: 'https://avatars.githubusercontent.com/u/64481824?v=4',
+          },
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
-      const result = await fetch(
-        'https://backend-file-praktikum.vercel.app/upload/',
-        {
-          method: 'POST',
-          body: imageFormData,
-        },
-      );
-      console.log('result', result);
-      if (result.status !== 200) {
-        throw new Error('failed to upload image');
-      }
-      const {url} = await result.json();
-
-      const response = await fetch(
-        'https://6819fd411ac115563507532b.mockapi.io/api/post',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            image: url,
-            caption: caption,
-            isLiked: false,
-            author: {
-              id: 1,
-              name: 'Makrus Ali',
-              image: 'https://avatars.githubusercontent.com/u/64481824?v=4',
-            },
-          }),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-      console.log('response', response);
-      if (response.status == 201) {
+      if (response.ok) {
         navigation.goBack();
+      } else {
+        throw new Error(`Failed to ${isEditing ? 'update' : 'create'} post`);
       }
     } catch (error) {
       console.log('error', error);
-      Alert.alert('Error', 'Gagal mengunggah foto. Silakan coba lagi.');
+      Alert.alert(
+        'Error',
+        `Gagal ${isEditing ? 'memperbarui' : 'mengunggah'} foto. Silakan coba lagi.`,
+      );
     } finally {
       setLoading(false);
     }
@@ -100,7 +147,9 @@ export default function AddPhotoFormScreen() {
               </View>
             </TouchableWithoutFeedback>
           </View>
-          <Text style={styles.headerTitle}>Unggah Foto</Text>
+          <Text style={styles.headerTitle}>
+            {isEditing ? 'Edit Foto' : 'Unggah Foto'}
+          </Text>
         </View>
       </View>
       <ScrollView style={{flex: 1}}>
@@ -150,8 +199,6 @@ export default function AddPhotoFormScreen() {
               borderRadius: 8,
               padding: 12,
               fontSize: 16,
-              // borderWidth: 1,
-              // borderColor: colors.secondary,
             }}
           />
         </View>
@@ -167,9 +214,7 @@ export default function AddPhotoFormScreen() {
           }}
           disabled={loading}
           android_ripple={{color: colors.primaryLight}}
-          onPress={() => {
-            handleUpload();
-          }}>
+          onPress={handleUpload}>
           {loading ? (
             <ActivityIndicator color={colors.background} size="small" />
           ) : (
@@ -179,7 +224,7 @@ export default function AddPhotoFormScreen() {
                 fontWeight: 'bold',
                 fontSize: 16,
               }}>
-              Unggah
+              {isEditing ? 'Perbarui' : 'Unggah'}
             </Text>
           )}
         </Pressable>
@@ -193,27 +238,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     flex: 1,
   },
-
   headerContainer: {
     padding: 16,
   },
-
   headerTopContainer: {
     justifyContent: 'space-between',
     flexDirection: 'row',
     alignItems: 'center',
   },
-
   headerTitle: {
     color: colors.primary,
     fontSize: 16,
     fontWeight: '500',
   },
-
   headerActionButton: {
     paddingRight: 32,
   },
-
   headerActionContainer: {
     justifyContent: 'center',
     alignItems: 'center',

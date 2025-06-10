@@ -9,7 +9,7 @@ import {
 import Octicons from '@react-native-vector-icons/octicons';
 import colors from '../assets/colors';
 
-export function PhotoCard({item}) {
+export function PhotoCard({item, onPressOption}) {
   const [liked, setLiked] = React.useState(false);
 
   return (
@@ -33,6 +33,8 @@ export function PhotoCard({item}) {
                 size={16}
               />
               <Octicons name="share" color={colors.primary} size={16} />
+              
+              <Octicons name="kebab-horizontal" color={colors.primary} size={16} onPress={onPressOption} />
             </View>
           </View>
           <Text style={card.caption}>{item.caption}</Text>
